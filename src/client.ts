@@ -75,7 +75,7 @@ export class ZplJet {
     const fetchImpl = options.fetch ?? globalThis.fetch;
     if (typeof fetchImpl !== "function") {
       throw new ZplJetError(
-        "No fetch implementation available. Use Node.js ≥ 18, or pass one via { fetch }.",
+        "No fetch implementation available. Use Node.js ≥ 22, or pass one via { fetch }.",
       );
     }
     // Bind so WebIDL-bound implementations (browser window.fetch, some edge

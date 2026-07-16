@@ -9,7 +9,7 @@ Official TypeScript/JavaScript SDK for the [ZPLJet](https://zpljet.com) API — 
 - **Zero dependencies** — a single small client on top of the platform `fetch`
 - **Fully typed** — request params, results, and every API error code
 - **Reliable by default** — automatic retries with exponential backoff (honoring `Retry-After`), per-request timeouts, typed errors you can `instanceof`
-- **Runs everywhere** — Node.js ≥ 18, Bun, Deno, and edge runtimes (Cloudflare Workers, Vercel Edge)
+- **Runs everywhere** — Node.js ≥ 22, Bun, Deno, and edge runtimes (Cloudflare Workers, Vercel Edge)
 
 ## Installation
 
@@ -188,7 +188,7 @@ ZPLJET_API_KEY=zpl_… npx tsx examples/01-convert-to-pdf.ts
 
 ## Requirements
 
-Node.js ≥ 18 (global `fetch`), or any runtime with a WHATWG-compatible
+Node.js ≥ 22 (global `fetch`), or any runtime with a WHATWG-compatible
 `fetch` — Bun, Deno, Cloudflare Workers, Vercel Edge. TypeScript ≥ 5 for the
 bundled types (plain JavaScript works too, ESM and CommonJS).
 
@@ -198,7 +198,7 @@ bundled types (plain JavaScript works too, ESM and CommonJS).
 npm install
 npm run typecheck   # tsc --noEmit
 npm test            # unit tests (no network)
-npm run build       # dist/ via tsup (ESM + CJS + .d.ts)
+npm run build       # dist/ via tsdown (ESM + CJS + declarations)
 
 # End-to-end tests against the live API (uses your quota):
 ZPLJET_API_KEY=zpl_… npm run test:e2e
