@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+*.pdf
+*.png
+!docs/**/*.png
+.env
+.pytest_cache/
