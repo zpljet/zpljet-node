@@ -1,14 +1,15 @@
 /**
- * Official TypeScript/JavaScript SDK for the ZPLJet API — fast ZPL → PDF/PNG
- * conversion. Docs: https://zpljet.com/docs
+ * ZPLJet TypeScript/JavaScript SDK.
+ * https://zpljet.com/docs
  *
  * @example
  * ```ts
- * import { ZplJet } from "zpljet";
+ * import { writeFile } from "node:fs/promises";
+ * import { ZplJet } from "@zpljet/node";
  *
  * const zpljet = new ZplJet({ apiKey: process.env.ZPLJET_API_KEY! });
  * const label = await zpljet.convert({ zpl: "^XA^FO50,50^A0N,50,50^FDHello^FS^XZ" });
- * await fs.promises.writeFile("label.pdf", label.data);
+ * await writeFile("label.pdf", label.data);
  * ```
  */
 

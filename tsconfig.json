@@ -16,5 +16,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src", "test", "examples", "tsdown.config.ts"]
+  "include": ["src", "tests", "examples", "tsdown.config.ts"]
 }

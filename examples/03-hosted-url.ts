@@ -1,9 +1,5 @@
-/**
- * Host the rendered PDF and get a public URL back (paid plans).
- *
- * Run: ZPLJET_API_KEY=zpl_… npx tsx examples/03-hosted-url.ts
- */
-import { PermissionDeniedError, ZplJet } from "../src/index"; // in your project: from "zpljet"
+/** Create a hosted PDF. Run with a paid-plan ZPLJET_API_KEY. */
+import { PermissionDeniedError, ZplJet } from "../src/index"; // Package: "@zpljet/node"
 
 const zpljet = new ZplJet({ apiKey: process.env.ZPLJET_API_KEY! });
 

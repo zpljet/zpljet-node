@@ -1,9 +1,4 @@
-/**
- * Public types for the ZPLJet API.
- *
- * These mirror the `POST /v1/convert` contract exactly — see
- * https://zpljet.com/docs/api-reference for the canonical reference.
- */
+/** Public POST /v1/convert types. */
 
 /** Print density in dots per millimeter. 8 = 203 dpi, 12 = 300 dpi, 24 = 600 dpi. */
 export type Dpmm = 6 | 8 | 12 | 24;
@@ -14,19 +9,15 @@ export type LabelFormat = "pdf" | "png";
 /**
  * Delivery mode.
  *
- * - `"data"` (default) — the API returns the raw file bytes and stores
- *   nothing. Private by default, available on every plan.
- * - `"url"` — returns a public bearer URL (paid plans). Anyone with it can
- *   fetch the file until retention cleanup.
+ * - `"data"`: return bytes; store nothing.
+ * - `"url"`: return a public, temporary URL on paid plans.
  */
 export type OutputMode = "data" | "url";
 
 /** Request body for `POST /v1/convert`. */
 export interface ConvertParams {
   /**
-   * Raw ZPL — one or more `^XA…^XZ` label blocks. Must start with `^XA` (or a
-   * `~DG`) and end with `^XZ`. Graphics must use uncompressed ASCII
-   * `^GF`/`~DG` data, up to 256 KB decoded. Max 512 KB total.
+   * Raw ZPL. Max 512 KB; graphics max 256 KB decoded.
    */
   zpl: string;
   /** Print density in dots/mm. Defaults to `8` (203 dpi). */
@@ -67,10 +58,7 @@ export interface HostedLabel {
 
 /** Per-request options, overriding the client-level defaults. */
 export interface RequestOptions {
-  /**
-   * Abort the request early. Combined with the timeout — whichever fires
-   * first wins.
-   */
+  /** Abort the request. */
   signal?: AbortSignal;
   /** Per-attempt timeout in milliseconds. Overrides the client default. */
   timeoutMs?: number;
@@ -80,30 +68,16 @@ export interface RequestOptions {
 
 /** Options for constructing a {@link ZplJet} client. */
 export interface ClientOptions {
-  /**
-   * Your ZPLJet API key (`zpl_…`), created in the dashboard at
-   * https://zpljet.com/dashboard. Keep it server-side — never ship it to a
-   * browser.
-   */
+  /** Server-side API key from https://zpljet.com/dashboard. */
   apiKey: string;
   /** API origin. Defaults to `https://api.zpljet.com`. */
   baseUrl?: string;
-  /**
-   * Allow a plaintext `http://` base URL to a non-loopback host. Off by default
-   * so your API key is never sent over an unencrypted connection by mistake.
-   * Loopback hosts (localhost/127.0.0.1/::1) are always allowed over http.
-   */
+  /** Allow HTTP outside loopback hosts. Defaults to `false`. */
   allowInsecureHttp?: boolean;
   /** Per-attempt timeout in milliseconds. Defaults to `60_000`. */
   timeoutMs?: number;
-  /**
-   * How many times a failed request is automatically retried (rate limits,
-   * transient 5xx, network errors). Defaults to `2`. Set `0` to disable.
-   */
+  /** Max retries for transient failures. Defaults to `2`. */
   maxRetries?: number;
-  /**
-   * Custom `fetch` implementation — useful for proxies, instrumentation, and
-   * tests. Defaults to the global `fetch`.
-   */
+  /** Custom fetch. Defaults to global fetch. */
   fetch?: typeof globalThis.fetch;
 }

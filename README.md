@@ -1,21 +1,25 @@
-# zpljet
+# @zpljet/node
 
 Official TypeScript/JavaScript SDK for the [ZPLJet](https://zpljet.com) API — fast ZPL → PDF/PNG conversion.
 
-[![npm version](https://img.shields.io/npm/v/zpljet.svg)](https://www.npmjs.com/package/zpljet)
+[![npm version](https://img.shields.io/npm/v/%40zpljet%2Fnode.svg)](https://www.npmjs.com/package/@zpljet/node)
 [![CI](https://github.com/zpljet/zpljet-node/actions/workflows/ci.yml/badge.svg)](https://github.com/zpljet/zpljet-node/actions/workflows/ci.yml)
-[![license](https://img.shields.io/npm/l/zpljet.svg)](./LICENSE)
+[![license](https://img.shields.io/npm/l/%40zpljet%2Fnode.svg)](https://github.com/zpljet/zpljet-node/blob/main/LICENSE)
 
 - **Zero dependencies** — a single small client on top of the platform `fetch`
 - **Fully typed** — request params, results, and every API error code
 - **Reliable by default** — automatic retries with exponential backoff (honoring `Retry-After`), per-request timeouts, typed errors you can `instanceof`
-- **Runs everywhere** — Node.js ≥ 22, Bun, Deno, and edge runtimes (Cloudflare Workers, Vercel Edge)
+- **Server runtimes** — Node.js ≥ 22, plus Bun, Deno, and server-side edge runtimes
 
 ## Installation
 
+Choose one:
+
 ```sh
-npm install zpljet
-# or: bun add zpljet / pnpm add zpljet / yarn add zpljet
+npm install @zpljet/node
+pnpm add @zpljet/node
+yarn add @zpljet/node
+bun add @zpljet/node
 ```
 
 ## Quickstart
@@ -24,7 +28,7 @@ Create an API key in the [dashboard](https://zpljet.com/dashboard) (keys look li
 
 ```ts
 import { writeFile } from "node:fs/promises";
-import { ZplJet } from "zpljet";
+import { ZplJet } from "@zpljet/node";
 
 const zpljet = new ZplJet({ apiKey: process.env.ZPLJET_API_KEY! });
 
@@ -94,7 +98,7 @@ import {
   RateLimitError,
   ConversionFailedError,
   APIConnectionError,
-} from "zpljet";
+} from "@zpljet/node";
 
 try {
   const label = await zpljet.convert({ zpl });
@@ -104,11 +108,11 @@ try {
   } else if (err instanceof QuotaExceededError) {
     console.error(`Quota used up (${err.used}/${err.quota}), resets ${err.resetsAt}`);
   } else if (err instanceof RateLimitError) {
-    console.error(`Rate limited — retry after ${err.retryAfter}s`); // already auto-retried
+    console.error(`Rate limited — retry after ${err.retryAfter}s`);
   } else if (err instanceof ConversionFailedError) {
     console.error(`Engine rejected the ZPL (conversion ${err.conversionId})`);
   } else if (err instanceof APIConnectionError) {
-    console.error(`Network problem: ${err.message}`); // already auto-retried
+    console.error(`Network problem: ${err.message}`);
   } else {
     throw err;
   }
@@ -135,13 +139,9 @@ All of these extend `ZplJetError`, and every HTTP error carries `status`,
 
 ### Retries
 
-Rate limits (429), transient server errors (5xx), timeouts, and network
-failures are retried automatically — up to 2 times by default, with
-exponential backoff, honoring the server's `Retry-After`. A 503
-`service_unavailable` means the render engine is temporarily unavailable; the
-request was not charged against quota. A 502
-`conversion_failed` is **not** retried: it means the engine rejected the ZPL
-itself, so a retry would fail identically.
+Rate limits, transient 5xx responses, timeouts, and network failures retry up
+to twice by default. Retries use exponential backoff and honor `Retry-After`.
+`conversion_failed` is never retried.
 
 ```ts
 // Client-wide
@@ -180,7 +180,7 @@ const zpljet = new ZplJet({
 
 ## Examples
 
-Runnable scripts live in [`examples/`](./examples):
+Runnable scripts live in [`examples/`](https://github.com/zpljet/zpljet-node/tree/main/examples):
 
 ```sh
 ZPLJET_API_KEY=zpl_… npx tsx examples/01-convert-to-pdf.ts
@@ -196,14 +196,12 @@ bundled types (plain JavaScript works too, ESM and CommonJS).
 
 ```sh
 npm install
-npm run typecheck   # tsc --noEmit
-npm test            # unit tests (no network)
-npm run build       # dist/ via tsdown (ESM + CJS + declarations)
+npm run check
 
-# End-to-end tests against the live API (uses your quota):
+# Live API; consumes quota
 ZPLJET_API_KEY=zpl_… npm run test:e2e
 ```
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](https://github.com/zpljet/zpljet-node/blob/main/LICENSE)

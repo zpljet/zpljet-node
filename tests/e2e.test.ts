@@ -1,13 +1,4 @@
-/**
- * End-to-end tests against a real ZPLJet API.
- *
- * Skipped unless ZPLJET_API_KEY is set — they consume real quota:
- *
- *   ZPLJET_API_KEY=zpl_… npm run test:e2e
- *
- * Point them at a local/staging stack with ZPLJET_BASE_URL (e.g.
- * http://localhost:3000).
- */
+/** Live API tests. Require ZPLJET_API_KEY; optional ZPLJET_BASE_URL. */
 import { describe, expect, it } from "vitest";
 import {
   AuthenticationError,
@@ -17,7 +8,7 @@ import {
 } from "../src/index";
 
 const apiKey = process.env.ZPLJET_API_KEY;
-const baseUrl = process.env.ZPLJET_BASE_URL; // optional — defaults to production
+const baseUrl = process.env.ZPLJET_BASE_URL;
 
 const ZPL = "^XA^FO50,50^A0N,50,50^FDZPLJet e2e^FS^XZ";
 
@@ -32,7 +23,6 @@ describe.skipIf(!apiKey)("e2e: /v1/convert", () => {
 
     expect(label.contentType).toBe("application/pdf");
     expect(label.id).toBeTruthy();
-    // %PDF magic bytes
     expect([...label.data.slice(0, 4)]).toEqual([0x25, 0x50, 0x44, 0x46]);
   });
 
@@ -40,7 +30,6 @@ describe.skipIf(!apiKey)("e2e: /v1/convert", () => {
     const label = await zpljet.convert({ zpl: ZPL, format: "png", dpmm: 12 });
 
     expect(label.contentType).toBe("image/png");
-    // \x89PNG magic bytes
     expect([...label.data.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
   });
 
@@ -67,7 +56,6 @@ describe.skipIf(!apiKey)("e2e: /v1/convert", () => {
       expect(hosted.pages).toBeGreaterThanOrEqual(1);
       expect(Date.parse(hosted.expiresAt)).toBeGreaterThan(Date.now());
     } catch (err) {
-      // Free-plan keys can't host — the typed refusal is the correct behavior.
       expect(err).toBeInstanceOf(PermissionDeniedError);
     }
   });

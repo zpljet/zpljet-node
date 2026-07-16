@@ -1,11 +1,6 @@
-/**
- * Convert a batch of labels with a small concurrency limit so you stay under
- * your plan's per-second rate limit (the SDK still auto-retries any 429s).
- *
- * Run: ZPLJET_API_KEY=zpl_… npx tsx examples/05-batch-with-concurrency.ts
- */
+/** Convert labels with bounded concurrency. Run with ZPLJET_API_KEY. */
 import { writeFile } from "node:fs/promises";
-import { ZplJet } from "../src/index"; // in your project: from "zpljet"
+import { ZplJet } from "../src/index"; // Package: "@zpljet/node"
 
 const zpljet = new ZplJet({ apiKey: process.env.ZPLJET_API_KEY!, maxRetries: 5 });
 
@@ -20,7 +15,6 @@ async function renderOrder(orderId: string) {
   return orderId;
 }
 
-// Tiny concurrency pool — no dependencies needed.
 const queue = [...orders];
 const workers = Array.from({ length: CONCURRENCY }, async () => {
   for (let next = queue.shift(); next; next = queue.shift()) {
