@@ -1,15 +1,3 @@
-# Publishes to npm when a GitHub Release is published (tag like v0.1.0).
-#
-# Setup (one time):
-#   1. Create an npm Automation token: npmjs.com -> Access Tokens -> Generate
-#      New Token -> "Automation" (bypasses 2FA for CI).
-#   2. Add it to this repo: Settings -> Secrets and variables -> Actions ->
-#      New repository secret, name it NPM_TOKEN.
-#
-# Release flow:
-#   npm version patch|minor|major   (bumps package.json + src/version.ts must match)
-#   git push --follow-tags
-#   Create a GitHub Release from the tag -> this workflow publishes with provenance.
 name: Release
 
 on:
@@ -18,29 +6,27 @@ on:
 
 permissions:
   contents: read
-  id-token: write # npm --provenance
+  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: npm
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
-          cache: npm
+          node-version: 24
+          package-manager-cache: false
           registry-url: https://registry.npmjs.org
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
-      - name: Check tag matches package.json version
+      - name: Check release tag
         run: |
-          PKG_VERSION="v$(node -p "require('./package.json').version")"
-          if [ "$PKG_VERSION" != "${{ github.event.release.tag_name }}" ]; then
-            echo "Tag ${{ github.event.release.tag_name }} != package.json $PKG_VERSION"
+          expected="v$(node -p "require('./package.json').version")"
+          test "$GITHUB_REF_NAME" = "$expected" || {
+            echo "::error::Release tag must be $expected"
             exit 1
-          fi
-      - run: npm publish --provenance --access public
+          }
+      - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

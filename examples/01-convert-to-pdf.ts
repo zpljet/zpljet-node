@@ -1,10 +1,6 @@
-/**
- * Convert ZPL to a PDF and save it locally.
- *
- * Run: ZPLJET_API_KEY=zpl_… npx tsx examples/01-convert-to-pdf.ts
- */
+/** Convert ZPL to PDF. Run with ZPLJET_API_KEY. */
 import { writeFile } from "node:fs/promises";
-import { ZplJet } from "../src/index"; // in your project: from "zpljet"
+import { ZplJet } from "../src/index"; // Package: "@zpljet/node"
 
 const zpljet = new ZplJet({ apiKey: process.env.ZPLJET_API_KEY! });
 

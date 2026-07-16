@@ -15,15 +15,16 @@ import { VERSION } from "./version";
 
 const DEFAULT_BASE_URL = "https://api.zpljet.com";
 const DEFAULT_TIMEOUT_MS = 60_000;
+const MAX_TIMEOUT_MS = 2_147_483_647;
 const DEFAULT_MAX_RETRIES = 2;
 const MAX_RETRIES_CAP = 10;
 
-/** Never sleep longer than this between retries, whatever the server asks. */
+/** Maximum retry delay. */
 const MAX_RETRY_DELAY_MS = 30_000;
-/** Base delay for exponential backoff when the server gives no Retry-After. */
+/** Initial retry delay. */
 const BASE_RETRY_DELAY_MS = 500;
 
-/** One fully-read HTTP response — headers and body both arrive (or fail) inside the attempt's timeout scope. */
+/** Buffered HTTP response. */
 interface RawResponse {
   status: number;
   ok: boolean;
@@ -35,17 +36,14 @@ interface RawResponse {
  * ZPLJet API client.
  *
  * ```ts
- * import { ZplJet } from "zpljet";
+ * import { ZplJet } from "@zpljet/node";
  *
  * const zpljet = new ZplJet({ apiKey: process.env.ZPLJET_API_KEY! });
  * const label = await zpljet.convert({ zpl: "^XA^FO50,50^A0N,50,50^FDHello^FS^XZ" });
  * // label.data is a Uint8Array of PDF bytes
  * ```
  *
- * Requests that fail with a rate limit (429), a transient server error, or a
- * network error are retried automatically with exponential backoff (honoring
- * `Retry-After`). Configure via {@link ClientOptions.maxRetries} and
- * {@link ClientOptions.timeoutMs}, or per call via {@link RequestOptions}.
+ * Retries rate limits, transient server errors, and network failures.
  */
 export class ZplJet {
   /** API origin requests are sent to. */
@@ -67,7 +65,10 @@ export class ZplJet {
     this.#apiKey = options.apiKey.trim();
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
     assertSecureBaseUrl(this.baseUrl, options.allowInsecureHttp ?? false);
-    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.timeoutMs = normalizeTimeoutMs(
+      options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      "timeoutMs",
+    );
     this.maxRetries = normalizeMaxRetries(
       options.maxRetries ?? DEFAULT_MAX_RETRIES,
       "maxRetries",
@@ -78,8 +79,7 @@ export class ZplJet {
         "No fetch implementation available. Use Node.js ≥ 22, or pass one via { fetch }.",
       );
     }
-    // Bind so WebIDL-bound implementations (browser window.fetch, some edge
-    // runtimes) aren't invoked with this client instance as their receiver.
+    // Preserve the WebIDL receiver.
     this.#fetch = fetchImpl.bind(globalThis);
   }
 
@@ -127,7 +127,7 @@ export class ZplJet {
     };
   }
 
-  /** POST `body` as JSON, retrying transient failures. Returns the ok response. */
+  /** POST JSON and retry transient failures. */
   async #requestWithRetries(
     path: string,
     body: unknown,
@@ -137,7 +137,10 @@ export class ZplJet {
       options.maxRetries ?? this.maxRetries,
       "maxRetries",
     );
-    const timeoutMs = options.timeoutMs ?? this.timeoutMs;
+    const timeoutMs = normalizeTimeoutMs(
+      options.timeoutMs ?? this.timeoutMs,
+      "timeoutMs",
+    );
     const payload = JSON.stringify(body);
 
     for (let attempt = 0; ; attempt++) {
@@ -167,11 +170,7 @@ export class ZplJet {
     }
   }
 
-  /**
-   * A single HTTP attempt with its own timeout. The body is read here, inside
-   * the timeout/abort scope — a stalled download times out like a stalled
-   * connection instead of hanging forever.
-   */
+  /** Run one buffered request under a timeout. */
   async #attempt(
     path: string,
     payload: string,
@@ -221,13 +220,10 @@ export class ZplJet {
   }
 }
 
-/** Loopback hosts may use http; everything else must use https unless opted in. */
+/** Loopback hosts allowed over HTTP. */
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
-/**
- * Guard against sending the API key over an unencrypted connection. Throws for
- * an `http://` base URL to a non-loopback host unless `allowInsecureHttp` is set.
- */
+/** Reject insecure remote URLs unless allowed. */
 function assertSecureBaseUrl(baseUrl: string, allowInsecureHttp: boolean): void {
   let url: URL;
   try {
@@ -245,7 +241,7 @@ function assertSecureBaseUrl(baseUrl: string, allowInsecureHttp: boolean): void 
   throw new ZplJetError(`Unsupported baseUrl protocol: ${url.protocol}`);
 }
 
-/** Parse the structured `{ error: { … } }` body; tolerate anything else. */
+/** Parse an API error body. */
 function parseErrorBody(body: Uint8Array): Record<string, unknown> {
   try {
     const parsed: unknown = JSON.parse(new TextDecoder().decode(body));
@@ -259,16 +255,12 @@ function parseErrorBody(body: Uint8Array): Record<string, unknown> {
       return parsed.error as Record<string, unknown>;
     }
   } catch {
-    // Non-JSON body (e.g. a gateway error page) — fall through.
+    // Ignore invalid JSON.
   }
   return {};
 }
 
-/**
- * The `Retry-After` response header, in milliseconds — either delta-seconds
- * or an HTTP-date. Used when the body carries no `retryAfter` field (e.g. a
- * gateway 429/503 with an HTML body).
- */
+/** Parse Retry-After as milliseconds. */
 function parseRetryAfterHeader(headers: Headers): number | undefined {
   const value = headers.get("retry-after");
   if (!value) return undefined;
@@ -278,28 +270,24 @@ function parseRetryAfterHeader(headers: Headers): number | undefined {
   return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now());
 }
 
-/**
- * Whether an error is worth retrying: network failures, timeouts, rate
- * limits, and transient 5xx. `conversion_failed` (502) is excluded — it means
- * the engine rejected the ZPL itself, so a retry would fail identically.
- */
+/** Check whether a retry can succeed. */
 function isRetryable(error: APIError | APIConnectionError): boolean {
   if (error instanceof APIConnectionError) return true;
   if (error.status === 429) return true;
   return error.status >= 500 && error.code !== "conversion_failed";
 }
 
-/**
- * Delay before the next retry — the body's `retryAfter`, else the
- * `Retry-After` header, else exponential backoff with jitter.
- */
+/** Choose server delay, header delay, or backoff. */
 function retryDelayMs(
   error: APIError | APIConnectionError,
   attempt: number,
   headerRetryAfterMs?: number,
 ): number {
   if (error instanceof APIError && typeof error.raw.retryAfter === "number") {
-    return Math.min(error.raw.retryAfter * 1000, MAX_RETRY_DELAY_MS);
+    return Math.min(
+      Math.max(0, error.raw.retryAfter * 1000),
+      MAX_RETRY_DELAY_MS,
+    );
   }
   if (headerRetryAfterMs !== undefined) {
     return Math.min(headerRetryAfterMs, MAX_RETRY_DELAY_MS);
@@ -309,7 +297,7 @@ function retryDelayMs(
   return Math.min(backoff + jitter, MAX_RETRY_DELAY_MS);
 }
 
-/** Abortable sleep — rejects with the signal's reason if aborted mid-wait. */
+/** Abortable delay. */
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     signal?.throwIfAborted();
@@ -319,7 +307,7 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
     }, ms);
     const onAbort = () => {
       clearTimeout(timer);
-      reject(signal?.reason instanceof Error ? signal.reason : new Error("Aborted"));
+      reject(signal?.reason);
     };
     signal?.addEventListener("abort", onAbort, { once: true });
   });
@@ -381,4 +369,11 @@ function normalizeMaxRetries(value: number, name: string): number {
     throw new TypeError(`${name} must be a finite integer >= 0`);
   }
   return Math.min(value, MAX_RETRIES_CAP);
+}
+
+function normalizeTimeoutMs(value: number, name: string): number {
+  if (!Number.isFinite(value) || value <= 0 || value > MAX_TIMEOUT_MS) {
+    throw new TypeError(`${name} must be > 0 and <= ${MAX_TIMEOUT_MS}`);
+  }
+  return value;
 }

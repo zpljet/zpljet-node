@@ -1,5 +1,5 @@
 {
-  "name": "zpljet",
+  "name": "@zpljet/node",
   "version": "1.0.0",
   "description": "Official TypeScript/JavaScript SDK for the ZPLJet API — fast ZPL to PDF/PNG conversion",
   "license": "MIT",
@@ -11,6 +11,11 @@
   },
   "bugs": {
     "url": "https://github.com/zpljet/zpljet-node/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org"
   },
   "keywords": [
     "zpl",
@@ -55,7 +60,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
-    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+    "check": "npm run typecheck && npm test && npm run build",
+    "prepublishOnly": "npm run check"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

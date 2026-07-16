@@ -2,7 +2,7 @@ import { vi } from "vitest";
 
 export const ZPL = "^XA^FO50,50^A0N,50,50^FDHello^FS^XZ";
 
-/** A structured API error response, exactly as the server builds them. */
+/** Build an API error response. */
 export function errorResponse(
   status: number,
   code: string,
@@ -23,7 +23,7 @@ export function errorResponse(
   );
 }
 
-/** A successful `output: "data"` response carrying PDF bytes. */
+/** Build a PDF response. */
 export function pdfResponse(id = "conv_123", bytes = new Uint8Array([37, 80, 68, 70])) {
   return new Response(bytes, {
     status: 200,
@@ -31,7 +31,7 @@ export function pdfResponse(id = "conv_123", bytes = new Uint8Array([37, 80, 68,
   });
 }
 
-/** A successful `output: "url"` JSON response. */
+/** Build a hosted-file response. */
 export function hostedResponse(overrides: Record<string, unknown> = {}) {
   return new Response(
     JSON.stringify({
@@ -46,11 +46,7 @@ export function hostedResponse(overrides: Record<string, unknown> = {}) {
   );
 }
 
-/**
- * A fetch mock that serves the given responses in order (repeating the last
- * one). Thrown-in `Error` values are rejected instead of resolved (network
- * failures).
- */
+/** Return queued responses; repeat the last. */
 export function fetchQueue(...results: [Response | Error, ...(Response | Error)[]]) {
   let call = 0;
   return vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {

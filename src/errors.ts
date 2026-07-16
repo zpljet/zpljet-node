@@ -1,23 +1,4 @@
-/**
- * Typed errors for the ZPLJet API.
- *
- * Every JSON error the API returns has a single structured shape:
- *
- * ```json
- * {
- *   "error": {
- *     "code": "rate_limit_exceeded",
- *     "message": "…",
- *     "retryAfter": 1,
- *     "docUrl": "https://zpljet.com/docs/errors#rate_limit_exceeded"
- *   }
- * }
- * ```
- *
- * The SDK maps each stable `error.code` to a dedicated subclass so you can
- * branch with `instanceof` instead of string comparison. Every subclass also
- * carries the raw `code`, HTTP `status`, and any code-specific context fields.
- */
+/** Typed ZPLJet API errors. */
 
 /** Stable machine-readable error codes returned by the public API. */
 export type ApiErrorCode =
@@ -40,10 +21,7 @@ export class ZplJetError extends Error {
   }
 }
 
-/**
- * The request never produced a usable API response — DNS failure, connection
- * reset, TLS error, etc. Automatically retried before being thrown.
- */
+/** Network or protocol failure. */
 export class APIConnectionError extends ZplJetError {
   constructor(message = "Connection error", options?: { cause?: unknown }) {
     super(message);
@@ -62,11 +40,7 @@ export class APITimeoutError extends APIConnectionError {
 export class APIError extends ZplJetError {
   /** HTTP status code. */
   readonly status: number;
-  /**
-   * Stable machine-readable code — safe to branch on. Typed as `string`
-   * (not {@link ApiErrorCode}) so codes added to the API after this SDK
-   * version still flow through instead of lying to exhaustive switches.
-   */
+  /** Machine-readable code. Open string for forward compatibility. */
   readonly code: string | undefined;
   /** Link to the docs entry for this code. */
   readonly docUrl: string | undefined;
@@ -112,10 +86,7 @@ export class APIError extends ZplJetError {
   }
 }
 
-/**
- * 400 `invalid_request` — the request body failed validation. The message is
- * `"<param>: <problem>"`; {@link param} names the offending field.
- */
+/** 400 `invalid_request`. */
 export class BadRequestError extends APIError {
   /** Dot-path of the invalid field, e.g. `"zpl"` or `"dpmm"`. */
   readonly param: string | undefined;
@@ -152,18 +123,10 @@ export class QuotaExceededError extends APIError {
   }
 }
 
-/**
- * 403 `hosting_not_allowed` / `no_retention_enforced` — hosted URLs are not
- * permitted for this account. Use `output: "data"` instead, or change the
- * plan/setting in the dashboard. Branch on {@link APIError.code} to tell the
- * two apart.
- */
+/** 403 hosting permission error. */
 export class PermissionDeniedError extends APIError {}
 
-/**
- * 429 `rate_limit_exceeded` — too many requests for this API key. The SDK
- * retries these automatically (honoring {@link retryAfter}) before throwing.
- */
+/** 429 `rate_limit_exceeded`. */
 export class RateLimitError extends APIError {
   /** Seconds to wait before retrying. */
   readonly retryAfter: number | undefined;
@@ -177,10 +140,7 @@ export class RateLimitError extends APIError {
   }
 }
 
-/**
- * 502 `conversion_failed` — the rendering engine could not process the ZPL.
- * Usually malformed or unsupported commands; not retried automatically.
- */
+/** 502 `conversion_failed`; not retried. */
 export class ConversionFailedError extends APIError {
   /** Id of the failed attempt — quote it when contacting support. */
   readonly conversionId: string | undefined;
@@ -192,10 +152,7 @@ export class ConversionFailedError extends APIError {
   }
 }
 
-/**
- * 503 `service_unavailable` — render engine temporarily unavailable; the
- * request was not charged against quota. Retry after the retry-after interval.
- */
+/** 503 `service_unavailable`; not charged. */
 export class ServiceUnavailableError extends APIError {
   /** Seconds to wait before retrying. */
   readonly retryAfter: number | undefined;

@@ -1,8 +1,4 @@
-/**
- * Handle every error the API can return, with typed context fields.
- *
- * Run: ZPLJET_API_KEY=zpl_… npx tsx examples/04-error-handling.ts
- */
+/** Handle typed API errors. Run with ZPLJET_API_KEY. */
 import {
   APIConnectionError,
   AuthenticationError,
@@ -11,11 +7,11 @@ import {
   QuotaExceededError,
   RateLimitError,
   ZplJet,
-} from "../src/index"; // in your project: from "zpljet"
+} from "../src/index"; // Package: "@zpljet/node"
 
 const zpljet = new ZplJet({ apiKey: process.env.ZPLJET_API_KEY! });
 
-// Deliberately invalid — there is no ^XA…^XZ block.
+// Invalid ZPL.
 const badZpl = "this is not zpl";
 
 try {
@@ -29,7 +25,6 @@ try {
   } else if (err instanceof QuotaExceededError) {
     console.log(`Quota: ${err.used}/${err.quota} used, resets ${err.resetsAt}`);
   } else if (err instanceof RateLimitError) {
-    // The SDK already retried with backoff before throwing this.
     console.log(`Still rate-limited — retry after ${err.retryAfter}s (${err.retryAt})`);
   } else if (err instanceof ConversionFailedError) {
     console.log(`Engine rejected the ZPL — support id: ${err.conversionId}`);

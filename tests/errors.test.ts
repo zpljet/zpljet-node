@@ -57,7 +57,7 @@ describe("APIError.from", () => {
     const err = APIError.from(429, {
       code: "rate_limit_exceeded",
       message: "m",
-      retryAfter: "soon", // wrong type on purpose
+      retryAfter: "soon",
     }) as RateLimitError;
     expect(err.retryAfter).toBeUndefined();
   });

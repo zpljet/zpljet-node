@@ -1,10 +1,6 @@
-/**
- * Render a 300 dpi PNG preview of a 4×6" shipping label.
- *
- * Run: ZPLJET_API_KEY=zpl_… npx tsx examples/02-convert-to-png.ts
- */
+/** Render a 300 dpi, 4×6-inch PNG. Run with ZPLJET_API_KEY. */
 import { writeFile } from "node:fs/promises";
-import { ZplJet } from "../src/index"; // in your project: from "zpljet"
+import { ZplJet } from "../src/index"; // Package: "@zpljet/node"
 
 const zpljet = new ZplJet({ apiKey: process.env.ZPLJET_API_KEY! });
 

@@ -53,6 +53,23 @@ describe("constructor", () => {
     expect(new ZplJet({ apiKey: "zpl_test", maxRetries: 99 }).maxRetries).toBe(10);
   });
 
+  it("requires a positive finite timeout", () => {
+    for (const timeoutMs of [
+      0,
+      -1,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      2_147_483_648,
+    ]) {
+      expect(() => new ZplJet({ apiKey: "zpl_test", timeoutMs })).toThrow(
+        TypeError,
+      );
+    }
+    expect(new ZplJet({ apiKey: "zpl_test", timeoutMs: 0.5 }).timeoutMs).toBe(
+      0.5,
+    );
+  });
+
   it("strips trailing slashes from baseUrl", () => {
     const client = new ZplJet({ apiKey: "zpl_test", baseUrl: "http://localhost:3000//" });
     expect(client.baseUrl).toBe("http://localhost:3000");
@@ -79,8 +96,7 @@ describe("constructor", () => {
 
 describe("convert — request shape", () => {
   it("works with a WebIDL-bound fetch (browser window.fetch)", async () => {
-    // Simulates a fetch that throws "Illegal invocation" when called with a
-    // receiver other than globalThis — like window.fetch does.
+    // Simulate WebIDL receiver checks.
     const queue = fetchQueue(pdfResponse());
     function strictFetch(this: unknown, input: RequestInfo | URL, init?: RequestInit) {
       if (this !== globalThis && this !== undefined) {
@@ -246,6 +262,17 @@ describe("retries", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("clamps a negative retry delay to zero", async () => {
+    const fetch = fetchQueue(
+      errorResponse(429, "rate_limit_exceeded", "slow down", { retryAfter: -1 }),
+      pdfResponse(),
+    );
+    await expect(
+      makeClient(fetch, { maxRetries: 1 }).convert({ zpl: ZPL }),
+    ).resolves.toMatchObject({ contentType: "application/pdf" });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("honors Retry-After before the next attempt", async () => {
     vi.useFakeTimers();
     const fetch = fetchQueue(
@@ -275,7 +302,7 @@ describe("retries", () => {
     expect(err).toBeInstanceOf(RateLimitError);
     expect(err.retryAfter).toBe(0);
     expect(err.retryAt).toBe("2026-07-06T00:00:01.000Z");
-    expect(fetch).toHaveBeenCalledTimes(3); // 1 attempt + 2 retries
+    expect(fetch).toHaveBeenCalledTimes(3);
   });
 
   it("retries network errors with backoff, then succeeds", async () => {
@@ -408,6 +435,14 @@ describe("timeouts & cancellation", () => {
     ) as unknown as typeof fetch & ReturnType<typeof vi.fn>;
   }
 
+  it("validates per-request timeouts before fetching", async () => {
+    const fetch = fetchQueue(pdfResponse());
+    await expect(
+      makeClient(fetch).convert({ zpl: ZPL }, { timeoutMs: 0 }),
+    ).rejects.toThrow(TypeError);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("times out an attempt and throws APITimeoutError", async () => {
     vi.useFakeTimers();
     const fetch = hangingFetch();
@@ -440,6 +475,21 @@ describe("timeouts & cancellation", () => {
     const reason = new Error("user cancelled");
     controller.abort(reason);
     await expect(promise).rejects.toBe(reason);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves a non-Error abort reason during backoff", async () => {
+    vi.useFakeTimers();
+    const fetch = fetchQueue(new TypeError("fetch failed"), pdfResponse());
+    const controller = new AbortController();
+    const promise = makeClient(fetch, { maxRetries: 1 }).convert(
+      { zpl: ZPL },
+      { signal: controller.signal },
+    );
+    const assertion = expect(promise).rejects.toBe("stop");
+    await vi.advanceTimersByTimeAsync(0);
+    controller.abort("stop");
+    await assertion;
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
